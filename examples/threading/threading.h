@@ -1,3 +1,5 @@
+#pragma once
+
 #include <stdbool.h>
 #include <pthread.h>
 
@@ -20,6 +22,9 @@ struct thread_data{
      * if an error occurred.
      */
     bool thread_complete_success;
+    int wait_to_obtain_ms;
+    int wait_to_release_ms;
+    pthread_mutex_t* mutex;
 };
 
 
