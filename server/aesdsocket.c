@@ -18,7 +18,7 @@
   
 
 int socketFD = 0;
-int connectionFD = 0;
+int connectionFD = 0; 
 int fileFD = 0;
 atomic_bool closing = false;
 
@@ -40,7 +40,6 @@ static void sigHandler(int sig)
     syslog(LOG_DEBUG, "Caught signal, exiting");
     CloseAll();
     closing = true;
-    exit(0);
     }
         
 static void subscribeToSignals()
@@ -78,13 +77,16 @@ void ProcessBuffer(char* bufferPtr, size_t bufferLen, int fileFD, int connection
         if(bufferPtr[read] == '\n')
             {      
             const int written = write(fileFD, segmentPtr, segmentLen);
-            if (errno != 0 || written != segmentLen)
+            if (written != segmentLen)
                 {fail("Error writing to file.", -1);}
             
             struct stat sb;
             fstat(fileFD, &sb);
             char* fileMap = mmap(NULL, sb.st_size, PROT_READ, MAP_PRIVATE, fileFD, 0); 
-            send(connectionFD, fileMap, sb.st_size, 0);
+            if(connectionFD == 0)
+                {syslog(LOG_DEBUG,"Connection closed while responding");}
+            else
+                {send(connectionFD, fileMap, sb.st_size, 0);}
             munmap(fileMap, sb.st_size);
         
             segmentPtr += segmentLen;
@@ -143,7 +145,7 @@ int main(int argc, char* argv[])
     for(int i = 0; i < argc; ++i)
         {
         if(strcmp(argv[i], "-d") == 0)
-            {Daemonize();}
+            {Daemonize(); break;}
         }
         
     if (listen(socketFD, 10) == -1)
@@ -173,26 +175,26 @@ int main(int argc, char* argv[])
         struct sockaddr_in *sa_peeraddr = (struct sockaddr_in *)&sa_peer;
         char peerString[INET_ADDRSTRLEN];
         inet_ntop(AF_INET, &sa_peeraddr->sin_addr, peerString, sizeof peerString);
-        syslog(LOG_DEBUG,"Accepted connection from %s", peerString);
+        syslog(LOG_DEBUG,"Accepted a connection from %s", peerString);
         
         // Receives data over the connection and appends to file /var/tmp/aesdsocketdata
 
 
         while(true)
             {
-                    
-            char buffer[256000];
+            char buffer[1];
             ssize_t writtenLen = 0;
             writtenLen = recv(connectionFD, buffer, sizeof(buffer), 0);
             //Logs message to the syslog “Closed connection from XXX” where XXX is the IP address of the connected client.
             if(writtenLen <= 0)
                 {syslog(LOG_DEBUG,"closed connection from %s", peerString); break;}
             ProcessBuffer(buffer, writtenLen, fileFD, connectionFD);
-                
             }
-        connectionFD=0;
+            
+        DoClose(&connectionFD);
         }
-      
+        
+    CloseAll();
     return 0;
     }
 
