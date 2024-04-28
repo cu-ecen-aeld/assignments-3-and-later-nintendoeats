@@ -1,5 +1,5 @@
 #include "aesdsocket.h"
-
+#include <sys/time.h>
 
 void ProcessBuffer(char* bufferPtr, size_t bufferLen, int fileFD, int connectionFD)
     {
@@ -61,22 +61,39 @@ void* ConnectionHandlerThread(void* thread_param)
     inet_ntop(AF_INET, &sa_peeraddr->sin_addr, peerString, sizeof peerString);
     syslog(LOG_DEBUG,"Accepted a connection from %s", peerString);
 
+    struct timeval tv;
+    tv.tv_sec = 3;
+    tv.tv_usec = 0;
+
+    setsockopt(connectionFD, SOL_SOCKET, SO_RCVTIMEO, (const char*)&tv, sizeof(tv));
+
+    bool lastCall = false;
+
     while(true)
     {
         char buffer[200];
         ssize_t writtenLen = 0;
-        writtenLen = recv(connectionFD, buffer, sizeof(buffer), MSG_DONTWAIT );
+        writtenLen = recv(connectionFD, buffer, sizeof(buffer), 0);
 
         //Logs message to the syslog “Closed connection from XXX” where XXX is the IP address of the connected client.
         if(writtenLen <= 0)
         {
-            if(errno == EAGAIN || errno == EWOULDBLOCK)
-                {if(!closeRequested){continue;}}
-            syslog(LOG_DEBUG,"closed connection from %s", peerString);
-            break;
+            if(!(errno == EAGAIN || errno == EWOULDBLOCK) || writtenLen == 0)
+            {
+                syslog(LOG_DEBUG,"closed connection from %s", peerString);
+                break;
+            }
 
+            if(closeRequested)
+                {lastCall = true;}
+
+            continue;
         }
+
         ProcessBuffer(buffer, writtenLen, fileFD, connectionFD);
+
+        if(lastCall)
+            {break;}
     }
 
     close(connectionFD);

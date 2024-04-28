@@ -22,6 +22,7 @@
 #include <sys/epoll.h>
 #include <unistd.h>
 #include <stddef.h>
+#include <sys/time.h>
 
 #include "connectionlist.h"
 

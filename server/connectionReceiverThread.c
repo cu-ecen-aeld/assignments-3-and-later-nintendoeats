@@ -59,6 +59,6 @@ void* ConnectionReceiverThread(void* thread_param)
     DestroyConnectionList(&connections);
 
     close(epollFD);
-
+    syslog(LOG_DEBUG, "GTFOing");
     return thread_param;
 }
