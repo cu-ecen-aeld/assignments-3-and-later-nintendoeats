@@ -15,7 +15,7 @@ OBJS = $(SRCS:.c=.o)
 all: aesdsocket
 
 aesdsocket: $(OBJS)
-	$(CC) $(OBJS) -o aesdsocket -lpthread -lrt --hash-style=gnu
+	$(CC) $(OBJS) -o aesdsocket -lpthread -lrt -Wl,--hash-style=gnu
 
 $(TARGET).o: $(TARGET).c
 	$(CC) -c $(TARGET).c -o $(TARGET).o 
