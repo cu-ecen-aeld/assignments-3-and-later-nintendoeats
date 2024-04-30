@@ -1,13 +1,12 @@
 
-CC ?= $(CROSS_COMPILE)gcc
+CC := $(CROSS_COMPILE)gcc
 
 SRCS =\
 aesdsocket.c\
 connectionlist.c\
-timestamper.c\
+timestampThread.c\
 connectionHandlerThread.c\
 connectionReceiverThread.c\
-localsocket.c
 
 
 OBJS = $(SRCS:.c=.o)
@@ -15,13 +14,12 @@ OBJS = $(SRCS:.c=.o)
 all: aesdsocket
 
 aesdsocket: $(OBJS)
-	$(CC) $(OBJS) -o aesdsocket -lpthread -lrt
+	$(CC) $(OBJS) -o aesdsocket -lpthread
 
 $(TARGET).o: $(TARGET).c
-	$(CC) -c $(TARGET).c -o $(TARGET).o 
+	$(CC) -c $(TARGET).c -o $(TARGET).o -O0 -g3
 
 clean:
 	rm -rf aesdsocket
 	rm -rf *.o
 	
-# DO NOT DELETE
