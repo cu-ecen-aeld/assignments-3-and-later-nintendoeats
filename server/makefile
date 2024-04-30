@@ -18,7 +18,7 @@ aesdsocket: $(OBJS)
 	$(CC) $(OBJS) -o aesdsocket -lpthread -lrt
 
 $(TARGET).o: $(TARGET).c
-	$(CC) -c $(TARGET).c -o $(TARGET).o -O0 -g3
+	$(CC) -c $(TARGET).c -o $(TARGET).o 
 
 clean:
 	rm -rf aesdsocket
