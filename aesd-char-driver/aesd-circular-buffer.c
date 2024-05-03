@@ -8,6 +8,7 @@
  *
  */
 
+
 #ifdef __KERNEL__
 #include <linux/string.h>
 #else
@@ -15,6 +16,16 @@
 #endif
 
 #include "aesd-circular-buffer.h"
+
+
+
+static struct aesd_buffer_entry* get_entry_at_virtual_offset(struct aesd_circular_buffer *buffer, uint8_t voffset)
+{
+    size_t offset = buffer->out_offs;
+    offset += voffset;
+    offset %= AESDCHAR_MAX_WRITE_OPERATIONS_SUPPORTED;
+    return &(buffer->entry[offset]);
+}
 
 /**
  * @param buffer the buffer to search for corresponding offset.  Any necessary locking must be performed by caller.
@@ -29,10 +40,29 @@
 struct aesd_buffer_entry *aesd_circular_buffer_find_entry_offset_for_fpos(struct aesd_circular_buffer *buffer,
             size_t char_offset, size_t *entry_offset_byte_rtn )
 {
-    /**
-    * TODO: implement per description
-    */
-    return NULL;
+    const bool inAndOutSame = (buffer->in_offs == buffer->out_offs);
+
+    if(inAndOutSame && !buffer->full) //the buffer is empty
+        {return NULL;}
+
+    uint8_t entryOffset = 0;
+    size_t totalPassed = 0;
+
+    while(totalPassed <= char_offset && entryOffset < AESDCHAR_MAX_WRITE_OPERATIONS_SUPPORTED)
+    {
+        totalPassed += get_entry_at_virtual_offset(buffer, entryOffset)->size;
+        entryOffset++;
+    }
+
+    if(totalPassed <= char_offset) //index not found
+        {return NULL;}
+
+    struct aesd_buffer_entry* entry = get_entry_at_virtual_offset(buffer, entryOffset-1);
+    totalPassed -= entry->size;
+    *entry_offset_byte_rtn = char_offset - totalPassed;
+
+
+    return entry;
 }
 
 /**
@@ -44,9 +74,18 @@ struct aesd_buffer_entry *aesd_circular_buffer_find_entry_offset_for_fpos(struct
 */
 void aesd_circular_buffer_add_entry(struct aesd_circular_buffer *buffer, const struct aesd_buffer_entry *add_entry)
 {
-    /**
-    * TODO: implement per description
-    */
+
+    buffer->entry[buffer->in_offs] = *add_entry;
+    buffer->in_offs++;
+
+    if(buffer->in_offs == AESDCHAR_MAX_WRITE_OPERATIONS_SUPPORTED)
+        {buffer->in_offs = 0;}
+
+    //if buffer was already full, these should be kept in lock step.
+    if(buffer->full)
+        {buffer->out_offs = buffer->in_offs;}
+    else
+        {buffer->full = (buffer->in_offs == buffer->out_offs);}
 }
 
 /**
