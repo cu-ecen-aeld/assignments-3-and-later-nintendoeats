@@ -32,7 +32,7 @@ static struct aesd_buffer_entry* get_entry_at_virtual_offset(struct aesd_circula
  * @param char_offset the position to search for in the buffer list, describing the zero referenced
  *      character index if all buffer strings were concatenated end to end
  * @param entry_offset_byte_rtn is a pointer specifying a location to store the byte of the returned aesd_buffer_entry
- *      buffptr member corresponding to char_offset.  This value is only set when a matching char_offset is found
+ *      buffPtr member corresponding to char_offset.  This value is only set when a matching char_offset is found
  *      in aesd_buffer.
  * @return the struct aesd_buffer_entry structure representing the position described by char_offset, or
  * NULL if this position is not available in the buffer (not enough data is written).
@@ -71,9 +71,11 @@ struct aesd_buffer_entry *aesd_circular_buffer_find_entry_offset_for_fpos(struct
 * new start location.
 * Any necessary locking must be handled by the caller
 * Any memory referenced in @param add_entry must be allocated by and/or must have a lifetime managed by the caller.
+* @returns NULL if not full or a pointer to a *buffptr member of aesd_buffer_entry that needs to be freed.
 */
-void aesd_circular_buffer_add_entry(struct aesd_circular_buffer *buffer, const struct aesd_buffer_entry *add_entry)
+const char* aesd_circular_buffer_add_entry(struct aesd_circular_buffer *buffer, const struct aesd_buffer_entry *add_entry)
 {
+    const char* retVal = buffer->entry[buffer->in_offs].buffptr;
 
     buffer->entry[buffer->in_offs] = *add_entry;
     buffer->in_offs++;
@@ -86,6 +88,8 @@ void aesd_circular_buffer_add_entry(struct aesd_circular_buffer *buffer, const s
         {buffer->out_offs = buffer->in_offs;}
     else
         {buffer->full = (buffer->in_offs == buffer->out_offs);}
+
+    return retVal;
 }
 
 /**

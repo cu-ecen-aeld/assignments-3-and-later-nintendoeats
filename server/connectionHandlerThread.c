@@ -1,16 +1,18 @@
 #include "aesdsocket.h"
 #include <sys/time.h>
 
+
+
 void ProcessBuffer(char* bufferPtr, size_t bufferLen, int fileFD, int connectionFD)
     {
     size_t segmentLen = 0;
     char* segmentPtr = bufferPtr;
 
-    for(size_t read = 0; read < bufferLen; ++read)
+    for(size_t rd = 0; rd < bufferLen; ++rd)
         {
         ++segmentLen;
 
-        if(bufferPtr[read] == '\n')
+        if(bufferPtr[rd] == '\n')
             {
             pthread_mutex_lock(&FileMutex);
 
@@ -18,14 +20,31 @@ void ProcessBuffer(char* bufferPtr, size_t bufferLen, int fileFD, int connection
             if (written != segmentLen)
                 {fail("Error writing to file.", -1);}
 
+
+#if USE_AESD_CHAR_DEVICE != 0
+
+            char buf[4096]; //sush
+            ssize_t totalOffset = 0;
+            ssize_t numRead = 0;
+            while ((numRead = pread(fileFD, buf, 4096, totalOffset)) > 0)
+                {
+                totalOffset += numRead;
+                if(connectionFD == 0)
+                    {syslog(LOG_DEBUG,"Connection closed while responding");}
+                send(connectionFD, buf, numRead, 0);
+                }
+
+#else
             struct stat sb;
             fstat(fileFD, &sb);
+
             char* fileMap = mmap(NULL, sb.st_size, PROT_READ, MAP_PRIVATE, fileFD, 0);
             if(connectionFD == 0)
                 {syslog(LOG_DEBUG,"Connection closed while responding");}
             else
                 {send(connectionFD, fileMap, sb.st_size, 0);}
             munmap(fileMap, sb.st_size);
+#endif
 
             fsync(fileFD);
 
@@ -89,8 +108,14 @@ void* ConnectionHandlerThread(void* thread_param)
 
             continue;
         }
-
+        int fileFD = 0;
+#if USE_AESD_CHAR_DEVICE != 0
+        fileFD = open(aesdfile, O_RDWR, 0666);
+#else
+        fileFD = open(aesdfile, O_RDWR | O_CREAT | O_TRUNC, 0666);
+#endif
         ProcessBuffer(buffer, writtenLen, fileFD, connectionFD);
+        close(fileFD);
 
         if(lastCall)
             {break;}

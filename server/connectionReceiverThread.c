@@ -47,7 +47,7 @@ void* ConnectionReceiverThread(void* thread_param)
             if(connectionFD == -1)
                 {continue;}
 
-            // Receives data over the connection and appends to file /var/tmp/aesdsocketdata
+            // Receives data over the connection and appends to the target file
             pthread_t newThread;
             struct Connection* connection  = AddConnection(&connections, connectionFD, 0);
             connection->m_thread = pthread_create(&newThread, NULL, ConnectionHandlerThread, connection);

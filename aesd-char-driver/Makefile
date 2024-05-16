@@ -10,6 +10,8 @@ else
 endif
 
 EXTRA_CFLAGS += $(DEBFLAGS)
+EXTRA_CFLAGS += -std=gnu99
+EXTRA_CFLAGS += -Wno-declaration-after-statement
 
 ifneq ($(KERNELRELEASE),)
 # call from kernel build system

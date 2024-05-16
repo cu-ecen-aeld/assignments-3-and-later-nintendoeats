@@ -2,7 +2,6 @@
 #include "aesdsocket.h"
 
 atomic_int socketFD = 0;
-atomic_int fileFD = 0;
 atomic_int closingSignalFD = 0;
 pthread_mutex_t FileMutex;
 
@@ -85,15 +84,23 @@ int main(int argc, char* argv[])
         
     if (listen(socketFD, 10) == -1)
         {fail("Failed to listen.",-1);}
-        
-          
-    fileFD = open("/var/tmp/aesdsocketdata", O_RDWR | O_CREAT | O_TRUNC, 0666);
+
+
+    int fileFD = 0;
+#if USE_AESD_CHAR_DEVICE != 0
+    fileFD = open(aesdfile, O_RDWR, 0666);
+#else
+    fileFD = open(aesdfile, O_RDWR | O_CREAT | O_TRUNC, 0666);
+#endif
     if (fileFD == -1)
         {fail("Target file could not be opened.", -1);}
+    close (fileFD);
 
     pthread_mutex_init(&FileMutex, NULL);
-    LaunchTimestamper();
 
+#if USE_AESD_CHAR_DEVICE == 0
+    LaunchTimestamper();
+#endif
     pthread_t connectionReceiverThread;
     pthread_create(&connectionReceiverThread, NULL, ConnectionReceiverThread, 0);
 
@@ -105,11 +112,8 @@ int main(int argc, char* argv[])
 
     const int zilch = 0;
     SendOnITS((void*)&zilch, sizeof(zilch));
-    syslog(LOG_DEBUG, "merp.");
     pthread_join(connectionReceiverThread,NULL);
-    syslog(LOG_DEBUG, "slerp.");
     close(socketFD);
-    close(fileFD);
     pthread_mutex_destroy(&FileMutex);
     pthread_cond_destroy(&closingVar);
     CloseITS();

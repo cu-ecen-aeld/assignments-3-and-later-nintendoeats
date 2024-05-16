@@ -1,5 +1,5 @@
 #pragma once
-#define _POSIX_C_SOURCE 199309
+#define _POSIX_C_SOURCE 200809L
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/un.h>
@@ -26,7 +26,16 @@
 
 #include "connectionlist.h"
 
-extern atomic_int fileFD;
+#ifndef USE_AESD_CHAR_DEVICE
+#define USE_AESD_CHAR_DEVICE 1
+#endif
+
+#if USE_AESD_CHAR_DEVICE != 0
+static const char* aesdfile = "/dev/aesdchar";
+#else
+static const char* aesdfile = "/var/tmp/aesdsocketdata";
+#endif
+
 extern atomic_int socketFD;
 extern pthread_mutex_t FileMutex;
 

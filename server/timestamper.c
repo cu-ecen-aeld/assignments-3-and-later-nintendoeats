@@ -19,7 +19,17 @@ static void TimeStamper(int sig, siginfo_t* si, void* uc)
     struct timespec theTime;
     clock_gettime(CLOCK_REALTIME, &theTime);
     size_t timeLen = 10 + strftime(timeString, sizeof(timeStringBase) - 10, "%a, %d %b %Y %T %z%n", gmtime(&theTime.tv_sec));
+
+    int fileFD = 0;
+#if USE_AESD_CHAR_DEVICE != 0
+    fileFD = open(aesdfile, O_RDWR, 0666);
+#else
+    fileFD = open(aesdfile, O_RDWR | O_CREAT | O_TRUNC, 0666);
+#endif
+
     write(fileFD,timeStringBase, timeLen);
+    close(fileFD);
+
     pthread_mutex_unlock(&FileMutex);
 }
 
