@@ -18,7 +18,7 @@ void ProcessBuffer(char* bufferPtr, size_t bufferLen, int fileFD, int connection
 
             const protoype = "AESDCHAR_IOCSEEKTO:X,Y";
 
-            if(segmentLen == sizeof(protoype);
+            if(segmentLen == sizeof(protoype)
              && memcmp("AESDCHAR_IOCSEEKTO:", segmentPtr, 19) == 0
              && segmentPtr[20] == ','
              )
