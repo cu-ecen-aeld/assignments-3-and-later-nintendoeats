@@ -173,14 +173,17 @@ ssize_t aesd_read(struct file *filp, char __user *buf, size_t count, loff_t *f_p
             (size_t)(*f_pos),
             &entryOffset);
 
+
     //The specified character does not exist in the buffer.
-    if(entryPtr == NULL)
+    /*
+    if(entryPtr == NULL )
         {
         put_user(0, buf);
         *f_pos = *f_pos + 1;
         retVal = 1;
         goto end;
         }
+    */
 
     const size_t entrySize = entryPtr->size - entryOffset;
     const size_t sizeToRead = entrySize < count ? entrySize : count;
