@@ -16,8 +16,8 @@ void ProcessBuffer(char* bufferPtr, size_t bufferLen, int fileFD, int connection
             {
             pthread_mutex_lock(&FileMutex);
 
-            if(segmentLen == 23
-             && memcmp("AESDCHAR_IOCSEEKTO:", segmentPtr, segmentLen) == 0
+            if(segmentLen == 22
+             && memcmp("AESDCHAR_IOCSEEKTO:", segmentPtr, 19) == 0
              && segmentPtr[20] == ','
              )
                 {
