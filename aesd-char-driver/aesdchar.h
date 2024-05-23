@@ -43,6 +43,8 @@ struct aesd_dev
     struct mutex entryMutex; // For locking the entry
     struct aesd_circular_buffer buff; // The buffer
     struct mutex buffMutex; // For locking the circular buffer
+
+    loff_t lseekPos;
 };
 
 

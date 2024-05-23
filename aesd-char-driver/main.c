@@ -20,6 +20,7 @@
 #include <linux/sched.h>
 #include <linux/slab.h>
 #include <linux/uaccess.h>
+#include "aesd_ioctl.h"
 
 #include "aesdchar.h"
 int aesd_major =   0; // use dynamic major
@@ -34,6 +35,7 @@ struct aesd_dev aesd_device =
     .entry.buffPtr = NULL,
     .entry.size = KMALLOC_MAX_SIZE,
     .entry.endIdx = 0,
+    .lseekPos = 0
 };
 
 void aesd_cleanup_module(void);
@@ -56,6 +58,91 @@ int aesd_release(struct inode *inode, struct file *filp)
     return 0;
 }
 
+
+
+
+loff_t aesd_llseek(struct file *filp, loff_t off, int whence)
+{
+    loff_t retVal = 0;
+    struct aesd_dev* dev = filp->private_data;
+
+    if (mutex_lock_interruptible(&dev->buffMutex))
+        {return -ERESTARTSYS;}
+
+    switch (whence)
+    {
+        case SEEK_SET:
+            dev->lseekPos = off;
+            break;
+        case SEEK_END:
+            dev->lseekPos = dev->lseekPos + off;
+            break;
+        case SEEK_CUR:
+            dev->lseekPos = aesd_circular_buffer_get_size(&dev->buff) +  off;
+            break;
+    }
+    retVal = dev->lseekPos;
+
+    mutex_unlock(&dev->buffMutex);
+
+    return retVal;
+}
+
+long aesd_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
+{
+    long retVal = 0;
+    struct aesd_dev* dev = filp->private_data;
+    struct aesd_seekto st;
+
+    PDEBUG("ioctl");
+
+    if (_IOC_TYPE(cmd) != AESD_IOC_MAGIC
+      ||_IOC_NR(cmd) > AESDCHAR_IOC_MAXNR)
+        {return -ENOTTY;}
+
+    switch(cmd)
+    {
+        case AESDCHAR_IOCSEEKTO:
+
+            if(copy_from_user(&st, (const void __user *)arg, sizeof(st)))
+                {retVal = -EFAULT;}
+            else
+            {
+                if (mutex_lock_interruptible(&dev->buffMutex))
+                    {return -ERESTARTSYS;}
+
+                const int basePos = aesd_circular_buffer_find_fpos_for_virtual_entry_offset
+                                        (&dev->buff, st.write_cmd);
+
+                if(basePos < 0)
+                {
+                    retVal = -EINVAL;
+                    goto end;
+                }
+
+                struct aesd_buffer_entry* entry
+                    =  aesd_circular_buffer_find_entry_at_position(&dev->buff, st.write_cmd);
+
+                if(entry->size < st.write_cmd_offset)
+                {
+                    retVal = -EINVAL;
+                    goto end;
+                }
+
+                dev->lseekPos = basePos + st.write_cmd_offset;
+                end:
+                mutex_unlock(&dev->buffMutex);
+            }
+            break;
+        default:
+            return -ENOTTY;
+    }
+
+
+    return retVal;
+}
+
+
 /*
  * filp  = file pointer
  * buf   = destination buffer
@@ -64,7 +151,7 @@ int aesd_release(struct inode *inode, struct file *filp)
  */
 ssize_t aesd_read(struct file *filp, char __user *buf, size_t count, loff_t *f_pos)
 {
-    ssize_t retval = 0;
+    ssize_t retVal = 0;
     struct aesd_dev* dev = filp->private_data;
 
     PDEBUG("read %zu bytes with offset %lld",count,*f_pos);
@@ -89,7 +176,9 @@ ssize_t aesd_read(struct file *filp, char __user *buf, size_t count, loff_t *f_p
     //The specified character does not exist in the buffer.
     if(entryPtr == NULL)
         {
-        PDEBUG("no entry found");
+        put_user(0, buf);
+        *f_pos = *f_pos + 1;
+        retVal = 1;
         goto end;
         }
 
@@ -97,19 +186,19 @@ ssize_t aesd_read(struct file *filp, char __user *buf, size_t count, loff_t *f_p
     const size_t sizeToRead = entrySize < count ? entrySize : count;
     const size_t notCopied = copy_to_user(buf, entryPtr->buffptr + entryOffset, sizeToRead);
     PDEBUG("notcopied is %zu",notCopied);
-    retval = sizeToRead - notCopied;
-    *f_pos = *f_pos + retval;
-    PDEBUG("retval is %zu", retval);
+    retVal = sizeToRead - notCopied;
+    *f_pos = *f_pos + retVal;
+    PDEBUG("retVal is %zu", retVal);
 
     end:
     mutex_unlock(&dev->buffMutex);
-    return retval;
+    return retVal;
 }
 
 
 ssize_t StorePartial(struct aesd_dev* dev, const char __user* buf, size_t count)
 {
-    ssize_t retval = 0;
+    ssize_t retVal = 0;
     PDEBUG("Storing partial of %zu bytes",count);
 
     if(count == 0)
@@ -132,7 +221,7 @@ ssize_t StorePartial(struct aesd_dev* dev, const char __user* buf, size_t count)
         if(newBuff == NULL)
         {
             PDEBUG("Failed to allocate memory for partial");
-            retval = -ENOMEM;
+            retVal = -ENOMEM;
             goto end;
         }
         dev->entry.buffPtr = newBuff;
@@ -142,7 +231,7 @@ ssize_t StorePartial(struct aesd_dev* dev, const char __user* buf, size_t count)
     if(dev->entry.endIdx + count > dev->entry.size)
     {
         PDEBUG("Write count exceeds maximum entry size");
-        retval = -ENOMEM;
+        retVal = -ENOMEM;
         goto end;
     }
 
@@ -153,7 +242,7 @@ ssize_t StorePartial(struct aesd_dev* dev, const char __user* buf, size_t count)
 
     PDEBUG("Partial stored");
     end:
-    return retval;
+    return retVal;
 }
 
 //must already hold entry mutex
@@ -260,6 +349,8 @@ struct file_operations aesd_fops = {
     .write =    aesd_write,
     .open =     aesd_open,
     .release =  aesd_release,
+    .llseek =   aesd_llseek,
+    .unlocked_ioctl = aesd_ioctl
 };
 
 static int aesd_setup_cdev(struct aesd_dev *dev)

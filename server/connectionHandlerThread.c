@@ -1,9 +1,9 @@
 #include "aesdsocket.h"
 #include <sys/time.h>
+#include "../aesd-char-driver/aesd_ioctl.h"
 
 
-
-void ProcessBuffer(char* bufferPtr, size_t bufferLen, int fileFD, int connectionFD)
+void ProcessBuffer(char* bufferPtr, size_t bufferLen, int fileFD, int connectionFD, char* residualPtr, size_t* residualSize)
     {
     size_t segmentLen = 0;
     char* segmentPtr = bufferPtr;
@@ -16,14 +16,26 @@ void ProcessBuffer(char* bufferPtr, size_t bufferLen, int fileFD, int connection
             {
             pthread_mutex_lock(&FileMutex);
 
-            const int written = write(fileFD, segmentPtr, segmentLen);
-            if (written != segmentLen)
-                {fail("Error writing to file.", -1);}
-
+            if(segmentLen == 23
+             && memcmp("AESDCHAR_IOCSEEKTO:", segmentPtr, segmentLen) == 0
+             && segmentPtr[20] == ','
+             )
+                {
+                struct aesd_seekto seek;
+                seek.write_cmd = segmentPtr[19] - '0';
+                seek.write_cmd_offset = segmentPtr[21] - '0';
+                ioctl(fileFD, AESDCHAR_IOCSEEKTO, seek);
+                }
+            else
+                {
+                const int written = write(fileFD, segmentPtr, segmentLen);
+                if (written != segmentLen)
+                    {fail("Error writing to file.", -1);}
+                }
 
 #if USE_AESD_CHAR_DEVICE != 0
 
-            char buf[4096]; //sush
+            char buf[4096]; //shush
             ssize_t totalOffset = 0;
             ssize_t numRead = 0;
             while ((numRead = pread(fileFD, buf, 4096, totalOffset)) > 0)
@@ -33,7 +45,6 @@ void ProcessBuffer(char* bufferPtr, size_t bufferLen, int fileFD, int connection
                     {syslog(LOG_DEBUG,"Connection closed while responding");}
                 send(connectionFD, buf, numRead, 0);
                 }
-
 #else
             struct stat sb;
             fstat(fileFD, &sb);
@@ -56,7 +67,7 @@ void ProcessBuffer(char* bufferPtr, size_t bufferLen, int fileFD, int connection
         }
 
     if (segmentLen != 0)
-        {write(fileFD, segmentPtr, segmentLen);}
+        {memcpy(residualPtr,segmentPtr, segmentLen);}
 
     }
 
@@ -65,7 +76,6 @@ void* ConnectionHandlerThread(void* thread_param)
     struct Connection* connection = thread_param;
 
     int connectionFD = connection->m_connectionFD;
-
 
     struct sockaddr sa_peer;
     socklen_t len_peer = 0;
@@ -88,11 +98,14 @@ void* ConnectionHandlerThread(void* thread_param)
 
     bool lastCall = false;
 
+    char buffer[200];
+    char residual[200];
+    size_t residualSize = 0;
+
     while(true)
     {
-        char buffer[200];
         ssize_t writtenLen = 0;
-        writtenLen = recv(connectionFD, buffer, sizeof(buffer), 0);
+        writtenLen = recv(connectionFD, buffer, sizeof(buffer) - residualSize, 0);
 
         //Logs message to the syslog “Closed connection from XXX” where XXX is the IP address of the connected client.
         if(writtenLen <= 0)
@@ -108,14 +121,20 @@ void* ConnectionHandlerThread(void* thread_param)
 
             continue;
         }
+
         int fileFD = 0;
+
 #if USE_AESD_CHAR_DEVICE != 0
         fileFD = open(aesdfile, O_RDWR, 0666);
 #else
         fileFD = open(aesdfile, O_RDWR | O_CREAT | O_TRUNC, 0666);
 #endif
-        ProcessBuffer(buffer, writtenLen, fileFD, connectionFD);
+        ProcessBuffer(buffer, writtenLen + residualSize, fileFD, connectionFD, residual, &residualSize);
         close(fileFD);
+
+        if(residualSize > 0)
+            {memcpy(residual, buffer, residualSize);}
+
 
         if(lastCall)
             {break;}

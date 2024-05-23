@@ -17,14 +17,55 @@
 
 #include "aesd-circular-buffer.h"
 
-
-
 static struct aesd_buffer_entry* get_entry_at_virtual_offset(struct aesd_circular_buffer *buffer, uint8_t voffset)
 {
     size_t offset = buffer->out_offs;
     offset += voffset;
     offset %= AESDCHAR_MAX_WRITE_OPERATIONS_SUPPORTED;
     return &(buffer->entry[offset]);
+}
+
+
+size_t aesd_circular_buffer_get_size(struct aesd_circular_buffer *buffer)
+{
+    size_t retVal = 0;
+    const size_t numEntries = buffer->full ?
+            AESDCHAR_MAX_WRITE_OPERATIONS_SUPPORTED :  buffer->in_offs;
+
+    for(int pos = 0; pos < numEntries; pos++)
+        {
+        const struct aesd_buffer_entry* entry = get_entry_at_virtual_offset(buffer, pos);
+        retVal += entry->size;
+        }
+
+    return retVal;
+}
+
+//returns -1 if invalid
+int aesd_circular_buffer_find_fpos_for_virtual_entry_offset
+    (struct aesd_circular_buffer* buffer, size_t entryOffset)
+{
+    const size_t numEntries = buffer->full ?
+                              AESDCHAR_MAX_WRITE_OPERATIONS_SUPPORTED :  buffer->in_offs;
+
+    if(entryOffset > numEntries)
+        {return -1;}
+
+
+    size_t retVal = 0;
+
+    for(size_t pos = 0; pos < entryOffset; ++pos)
+        {
+        retVal += get_entry_at_virtual_offset(buffer, pos)->size;
+        }
+
+    return (int)retVal;
+}
+
+extern struct aesd_buffer_entry* aesd_circular_buffer_find_entry_at_position
+        (struct aesd_circular_buffer *buffer, size_t pos)
+{
+    return get_entry_at_virtual_offset(buffer, pos);
 }
 
 /**
