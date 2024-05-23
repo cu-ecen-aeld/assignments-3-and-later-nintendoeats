@@ -16,13 +16,14 @@ void ProcessBuffer(char* bufferPtr, size_t bufferLen, int fileFD, int connection
             {
             pthread_mutex_lock(&FileMutex);
 
-            const protoype = "AESDCHAR_IOCSEEKTO:X,Y";
-
+            const char protoype[] = "AESDCHAR_IOCSEEKTO:X,Y";
+            syslog(LOG_DEBUG,"Processing %s", segmentPtr);
             if(segmentLen == sizeof(protoype)
              && memcmp("AESDCHAR_IOCSEEKTO:", segmentPtr, 19) == 0
              && segmentPtr[20] == ','
              )
                 {
+                syslog(LOG_DEBUG,"found command");
                 struct aesd_seekto seek;
                 seek.write_cmd = segmentPtr[19] - '0';
                 seek.write_cmd_offset = segmentPtr[21] - '0';
@@ -71,6 +72,7 @@ void ProcessBuffer(char* bufferPtr, size_t bufferLen, int fileFD, int connection
     if (segmentLen != 0)
         {memcpy(residualPtr,segmentPtr, segmentLen);}
 
+    *residualSize = segmentLen;
     }
 
 void* ConnectionHandlerThread(void* thread_param)
@@ -100,8 +102,8 @@ void* ConnectionHandlerThread(void* thread_param)
 
     bool lastCall = false;
 
-    char buffer[200];
-    char residual[200];
+    char buffer[400];
+    char residual[400];
     size_t residualSize = 0;
 
     while(true)
