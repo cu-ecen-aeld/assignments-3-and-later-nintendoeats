@@ -116,6 +116,7 @@ long aesd_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
                 const int basePos = aesd_circular_buffer_find_fpos_for_virtual_entry_offset
                                         (&dev->buff, st.write_cmd);
 
+                PDEBUG("basePos is %d", basePos);
                 if(basePos < 0)
                 {
                     retVal = -EINVAL;
@@ -132,6 +133,7 @@ long aesd_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
                 }
 
                 dev->lseekPos = basePos + st.write_cmd_offset;
+                PDEBUG("new seekpos is %lld",   dev->lseekPos);
                 end:
                 mutex_unlock(&dev->buffMutex);
             }
