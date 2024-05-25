@@ -167,10 +167,12 @@ ssize_t aesd_read(struct file *filp, char __user *buf, size_t count, loff_t *f_p
     struct aesd_buffer_entry* entryPtr = NULL;
     size_t entryOffset = 0;
 
+    size_t actualPos = (size_t)(*f_pos) + dev->lseekPos;
+
     // Get the sub-buffer that contains the specified character
     entryPtr = aesd_circular_buffer_find_entry_offset_for_fpos(
             &dev->buff,
-            (size_t)(*f_pos),
+            actualPos,
             &entryOffset);
 
 
