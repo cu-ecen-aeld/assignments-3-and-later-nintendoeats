@@ -110,15 +110,18 @@ long aesd_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 
             PDEBUG("seekto");
             if(copy_from_user(&st, (const void __user *)arg, sizeof(st)))
-                {
+            {
                 PDEBUG("CopyFail");
                 return -EFAULT;
-                }
+            }
             else
             {
+                PDEBUG("GettingMutex");
+
                 if (mutex_lock_interruptible(&dev->buffMutex))
                     {return -ERESTARTSYS;}
 
+                PDEBUG("GotMutex");
                 const int basePos = aesd_circular_buffer_find_fpos_for_virtual_entry_offset
                                         (&dev->buff, st.write_cmd);
 
