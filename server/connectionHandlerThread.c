@@ -48,7 +48,7 @@ void ProcessBuffer(char* bufferPtr, size_t bufferLen, int fileFD, int connection
             char buf[4096]; //shush
             ssize_t totalOffset = 0;
             ssize_t numRead = 0;
-            while ((numRead = pread(fileFD, buf, 4096, totalOffset)) > 0)
+            while ((numRead = read(fileFD, buf, 4096)) > 0)
                 {
                 totalOffset += numRead;
                 if(connectionFD == 0)

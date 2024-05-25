@@ -66,6 +66,8 @@ loff_t aesd_llseek(struct file *filp, loff_t off, int whence)
     loff_t retVal = 0;
     struct aesd_dev* dev = filp->private_data;
 
+    PDEBUG("seeking");
+
     if (mutex_lock_interruptible(&dev->buffMutex))
         {return -ERESTARTSYS;}
 
