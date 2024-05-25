@@ -1,7 +1,18 @@
 #include "aesdsocket.h"
 #include <sys/time.h>
 #include "../aesd-char-driver/aesd_ioctl.h"
+#include <inttypes.h>
 
+
+#define AESD_SOCKET_IOC_STRING "AESDCHAR_IOCSEEKTO"
+
+bool FindSeek(char* bufferPtr, struct aesd_seekto* seekOut)
+{
+    int result = sscanf(bufferPtr, AESD_SOCKET_IOC_STRING ":%" PRIu32 ",%" PRIu32 "\n",
+            &seekOut->write_cmd, &seekOut->write_cmd_offset);
+
+    return result == 2;
+}
 
 void ProcessBuffer(char* bufferPtr, size_t bufferLen, int fileFD, int connectionFD, char* residualPtr, size_t* residualSize)
     {
@@ -16,17 +27,13 @@ void ProcessBuffer(char* bufferPtr, size_t bufferLen, int fileFD, int connection
             {
             pthread_mutex_lock(&FileMutex);
 
-            const char protoype[] = "AESDCHAR_IOCSEEKTO:X,Y";
             syslog(LOG_DEBUG,"Processing %s", segmentPtr);
-            if(segmentLen == sizeof(protoype)
-             && memcmp("AESDCHAR_IOCSEEKTO:", segmentPtr, 19) == 0
-             && segmentPtr[20] == ','
-             )
+
+            struct aesd_seekto seek;
+
+            if(FindSeek(segmentPtr, &seek))
                 {
                 syslog(LOG_DEBUG,"found command");
-                struct aesd_seekto seek;
-                seek.write_cmd = segmentPtr[19] - '0';
-                seek.write_cmd_offset = segmentPtr[21] - '0';
                 ioctl(fileFD, AESDCHAR_IOCSEEKTO, seek);
                 }
             else
