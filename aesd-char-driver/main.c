@@ -74,12 +74,15 @@ loff_t aesd_llseek(struct file *filp, loff_t off, int whence)
     switch (whence)
     {
         case SEEK_SET:
+            PDEBUG("set");
             dev->lseekPos = off;
             break;
         case SEEK_END:
+            PDEBUG("end");
             dev->lseekPos = dev->lseekPos + off;
             break;
         case SEEK_CUR:
+            PDEBUG("cur");
             dev->lseekPos = aesd_circular_buffer_get_size(&dev->buff) +  off;
             break;
     }
