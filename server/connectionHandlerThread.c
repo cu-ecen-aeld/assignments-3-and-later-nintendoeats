@@ -34,7 +34,7 @@ void ProcessBuffer(char* bufferPtr, size_t bufferLen, int fileFD, int connection
             if(FindSeek(segmentPtr, &seek))
                 {
                 syslog(LOG_DEBUG,"found command");
-                ioctl(fileFD, AESDCHAR_IOCSEEKTO, seek);
+                ioctl(fileFD, AESDCHAR_IOCSEEKTO, &seek);
                 }
             else
                 {
