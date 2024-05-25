@@ -102,12 +102,18 @@ long aesd_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
       ||_IOC_NR(cmd) > AESDCHAR_IOC_MAXNR)
         {return -ENOTTY;}
 
+    PDEBUG("valid");
+
     switch(cmd)
     {
         case AESDCHAR_IOCSEEKTO:
 
+            PDEBUG("seekto");
             if(copy_from_user(&st, (const void __user *)arg, sizeof(st)))
-                {retVal = -EFAULT;}
+                {
+                PDEBUG("CopyFail");
+                return -EFAULT;
+                }
             else
             {
                 if (mutex_lock_interruptible(&dev->buffMutex))
